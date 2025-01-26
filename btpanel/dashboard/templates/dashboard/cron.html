@@ -1,0 +1,94 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 计划任务{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>计划任务</h2>
+        <a href="{% url 'dashboard:cron_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 添加任务
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>任务名称</th>
+                            <th>执行命令</th>
+                            <th>执行周期</th>
+                            <th>状态</th>
+                            <th>上次执行</th>
+                            <th>下次执行</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td>{{ job.name }}</td>
+                            <td><code>{{ job.command }}</code></td>
+                            <td>
+                                {% if job.interval == 'custom' %}
+                                <code>{{ job.cron_expression }}</code>
+                                {% else %}
+                                {{ job.get_interval_display }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if job.is_enabled %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ job.is_enabled|yesno:"启用,禁用" }}
+                                </span>
+                            </td>
+                            <td>{{ job.last_run|default:'-'|date:"Y-m-d H:i" }}</td>
+                            <td>{{ job.next_run|default:'-'|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'dashboard:cron' %}?action=edit&id={{ job.id }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'dashboard:cron' %}?action=toggle"
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="job_id" value="{{ job.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-{{ job.is_enabled|yesno:"warning,success" }}">
+                                            <i class="bi bi-{{ job.is_enabled|yesno:"pause,play" }}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'dashboard:cron' %}?action=delete"
+                                          class="d-inline"
+                                          onsubmit="return confirm('确定要删除这个任务吗？');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="job_id" value="{{ job.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">暂无计划任务</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

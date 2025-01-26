@@ -1,0 +1,94 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 添加安全规则{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>添加安全规则</h2>
+        <a href="{% url 'dashboard:security' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:security' %}" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="mb-3">
+                    <label for="name" class="form-label">规则名称</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="invalid-feedback">请输入规则名称</div>
+                </div>
+                <div class="mb-3">
+                    <label for="rule_type" class="form-label">规则类型</label>
+                    <select class="form-select" id="rule_type" name="rule_type" required>
+                        <option value="">请选择规则类型</option>
+                        <option value="ip">IP封禁</option>
+                        <option value="port">端口限制</option>
+                        <option value="url">URL拦截</option>
+                    </select>
+                    <div class="invalid-feedback">请选择规则类型</div>
+                </div>
+                <div class="mb-3">
+                    <label for="value" class="form-label">规则值</label>
+                    <input type="text" class="form-control" id="value" name="value" required>
+                    <div class="invalid-feedback">请输入规则值</div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">添加规则</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 根据规则类型显示不同的提示
+document.getElementById('rule_type').addEventListener('change', function(e) {
+    const value = document.getElementById('value');
+    const type = e.target.value;
+    
+    if (type === 'ip') {
+        value.placeholder = '请输入IP地址，如：192.168.1.1';
+    } else if (type === 'port') {
+        value.placeholder = '请输入端口号，如：8080';
+    } else if (type === 'url') {
+        value.placeholder = '请输入URL路径，如：/admin/';
+    }
+});
+
+// 添加表单验证和调试输出
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('页面加载完成');  // 调试输出
+    
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        console.log('表单提交');  // 调试输出
+        
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('表单验证失败');  // 调试输出
+        }
+        
+        form.classList.add('was-validated');
+        console.log('表单验证通过');  // 调试输出
+    });
+});
+</script>
+{% endblock %} 

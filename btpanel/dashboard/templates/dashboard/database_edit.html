@@ -1,0 +1,40 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 编辑数据库{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>编辑数据库</h2>
+        <a href="{% url 'dashboard:database' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:database_edit' database.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">数据库名</label>
+                    <input type="text" class="form-control" value="{{ database.name }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">数据库类型</label>
+                    <input type="text" class="form-control" value="{{ database.get_db_type_display }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-control" value="{{ database.username }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">新密码</label>
+                    <input type="text" class="form-control" id="password" name="password">
+                    <div class="form-text">如果不需要修改密码，请留空</div>
+                </div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,74 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 编辑计划任务{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>编辑计划任务</h2>
+        <a href="{% url 'dashboard:cron' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:cron' %}?action=edit">
+                {% csrf_token %}
+                <input type="hidden" name="job_id" value="{{ job.id }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">任务名称</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ job.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="command" class="form-label">执行命令</label>
+                    <input type="text" class="form-control" id="command" name="command" value="{{ job.command }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="interval" class="form-label">执行周期</label>
+                    <select class="form-select" id="interval" name="interval" onchange="toggleCronExpression()">
+                        <option value="minute" {% if job.interval == 'minute' %}selected{% endif %}>每分钟</option>
+                        <option value="hour" {% if job.interval == 'hour' %}selected{% endif %}>每小时</option>
+                        <option value="day" {% if job.interval == 'day' %}selected{% endif %}>每天</option>
+                        <option value="week" {% if job.interval == 'week' %}selected{% endif %}>每周</option>
+                        <option value="month" {% if job.interval == 'month' %}selected{% endif %}>每月</option>
+                        <option value="custom" {% if job.interval == 'custom' %}selected{% endif %}>自定义</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="cronExpressionGroup" style="display: {% if job.interval == 'custom' %}block{% else %}none{% endif %};">
+                    <label for="cron_expression" class="form-label">Cron表达式</label>
+                    <input type="text" class="form-control" id="cron_expression" name="cron_expression" 
+                           pattern="^(\S+\s+){4}\S+$" value="{{ job.cron_expression }}">
+                    <div class="form-text">
+                        格式：分 时 日 月 周<br>
+                        示例：0 2 * * * （每天凌晨2点执行）
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3">{{ job.description }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleCronExpression() {
+    var interval = document.getElementById('interval').value;
+    var cronGroup = document.getElementById('cronExpressionGroup');
+    var cronInput = document.getElementById('cron_expression');
+    
+    if (interval === 'custom') {
+        cronGroup.style.display = 'block';
+        cronInput.required = true;
+    } else {
+        cronGroup.style.display = 'none';
+        cronInput.required = false;
+    }
+}
+</script>
+{% endblock %} 

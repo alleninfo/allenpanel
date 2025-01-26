@@ -1,0 +1,52 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 添加数据库{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>添加数据库</h2>
+        <a href="{% url 'dashboard:database' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:database_add' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="name" class="form-label">数据库名</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="db_type" class="form-label">数据库类型</label>
+                    <select class="form-select" id="db_type" name="db_type">
+                        <option value="mysql">MySQL</option>
+                        <option value="postgresql">PostgreSQL</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="username" name="username">
+                    <div class="form-text">如果留空，将使用数据库名作为用户名</div>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">密码</label>
+                    <input type="text" class="form-control" id="password" name="password">
+                    <div class="form-text">如果留空，将自动生成随机密码</div>
+                </div>
+                <div class="mb-3">
+                    <label for="charset" class="form-label">字符集</label>
+                    <select class="form-select" id="charset" name="charset">
+                        <option value="utf8mb4">utf8mb4</option>
+                        <option value="utf8">utf8</option>
+                        <option value="latin1">latin1</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">创建数据库</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

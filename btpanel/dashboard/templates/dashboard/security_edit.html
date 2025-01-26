@@ -1,0 +1,40 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 编辑安全规则{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>编辑安全规则</h2>
+        <a href="{% url 'dashboard:security' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:security' %}?action=edit">
+                {% csrf_token %}
+                <input type="hidden" name="rule_id" value="{{ rule.id }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">规则名称</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ rule.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">规则类型</label>
+                    <input type="text" class="form-control" value="{{ rule.get_rule_type_display }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label for="value" class="form-label">规则值</label>
+                    <input type="text" class="form-control" id="value" name="value" value="{{ rule.value }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3">{{ rule.description }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">保存修改</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

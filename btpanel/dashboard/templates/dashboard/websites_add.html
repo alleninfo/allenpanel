@@ -1,0 +1,44 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 添加网站{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>添加网站</h2>
+        <a href="{% url 'dashboard:websites' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:websites_add' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="name" class="form-label">网站名称</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="domain" class="form-label">域名</label>
+                    <input type="text" class="form-control" id="domain" name="domain" required>
+                </div>
+                <div class="mb-3">
+                    <label for="port" class="form-label">端口</label>
+                    <input type="number" class="form-control" id="port" name="port" value="80" required>
+                </div>
+                <div class="mb-3">
+                    <label for="php_version" class="form-label">PHP版本</label>
+                    <select class="form-select" id="php_version" name="php_version">
+                        <option value="">不使用PHP</option>
+                        <option value="7.4">PHP 7.4</option>
+                        <option value="8.0">PHP 8.0</option>
+                        <option value="8.1">PHP 8.1</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">创建网站</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

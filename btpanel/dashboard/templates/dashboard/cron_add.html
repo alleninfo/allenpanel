@@ -1,0 +1,123 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}添加计划任务{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>添加计划任务</h2>
+        <a href="{% url 'dashboard:cron' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'dashboard:cron' %}" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="mb-3">
+                    <label for="name" class="form-label">任务名称</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="invalid-feedback">请输入任务名称</div>
+                </div>
+                <div class="mb-3">
+                    <label for="command" class="form-label">执行命令</label>
+                    <input type="text" class="form-control" id="command" name="command" required>
+                    <div class="form-text">请输入完整的命令路径，如：/usr/bin/python3 /path/to/script.py</div>
+                    <div class="invalid-feedback">请输入执行命令</div>
+                </div>
+                <div class="mb-3">
+                    <label for="interval" class="form-label">执行周期</label>
+                    <select class="form-select" id="interval" name="interval" onchange="toggleCronExpression()" required>
+                        <option value="">请选择执行周期</option>
+                        <option value="minute">每分钟</option>
+                        <option value="hour">每小时</option>
+                        <option value="day">每天</option>
+                        <option value="week">每周</option>
+                        <option value="month">每月</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                    <div class="invalid-feedback">请选择执行周期</div>
+                </div>
+                <div class="mb-3" id="cronExpressionGroup" style="display: none;">
+                    <label for="cron_expression" class="form-label">Cron表达式</label>
+                    <input type="text" class="form-control" id="cron_expression" name="cron_expression" 
+                           pattern="^(\S+\s+){4}\S+$">
+                    <div class="form-text">
+                        格式：分 时 日 月 周<br>
+                        示例：0 2 * * * （每天凌晨2点执行）
+                    </div>
+                    <div class="invalid-feedback">请输入有效的Cron表达式</div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">添加任务</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleCronExpression() {
+    const interval = document.getElementById('interval').value;
+    const cronGroup = document.getElementById('cronExpressionGroup');
+    const cronInput = document.getElementById('cron_expression');
+    
+    console.log('切换Cron表达式显示:', interval);  // 调试输出
+    
+    if (interval === 'custom') {
+        cronGroup.style.display = 'block';
+        cronInput.required = true;
+    } else {
+        cronGroup.style.display = 'none';
+        cronInput.required = false;
+        cronInput.value = '';
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('页面加载完成');  // 调试输出
+    toggleCronExpression();
+    
+    // 表单验证
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        console.log('表单提交');  // 调试输出
+        
+        if (!form.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('表单验证失败');  // 调试输出
+        }
+        
+        const interval = document.getElementById('interval').value;
+        const cronExpression = document.getElementById('cron_expression').value;
+        
+        if (interval === 'custom' && !cronExpression) {
+            e.preventDefault();
+            alert('请填写Cron表达式');
+            console.log('缺少Cron表达式');  // 调试输出
+            return;
+        }
+        
+        form.classList.add('was-validated');
+        console.log('表单验证通过');  // 调试输出
+    });
+});
+</script>
+{% endblock %} 

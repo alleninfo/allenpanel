@@ -1,0 +1,661 @@
+{% extends 'dashboard/base.html' %}
+{% load dashboard_filters %}
+
+{% block title %}控制面板 - 文件管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">文件管理</h2>
+            <!-- 可跳转的文件路径 -->
+            <div class="input-group mt-2">
+                <span class="input-group-text"><i class="bi bi-folder2-open"></i></span>
+                <input type="text" class="form-control" id="current_path" value="{{ current_path }}">
+                <button class="btn btn-outline-secondary" type="button" onclick="goToPath()">
+                    <i class="bi bi-box-arrow-in-right"></i> 跳转
+                </button>
+            </div>
+            <!-- 面包屑导航 -->
+            <nav aria-label="breadcrumb" class="mt-2">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'dashboard:files' %}"><i class="bi bi-house-door"></i> 根目录</a>
+                    </li>
+                    {% if current_path != '/' %}
+                        {% with path_parts=current_path|split:"/" %}
+                            {% for part in path_parts %}
+                                {% if part %}
+                                    <li class="breadcrumb-item">
+                                        {% with current_path=path_parts|slice:":forloop.counter"|join:"/" %}
+                                            <a href="{% url 'dashboard:files' %}?path=/{{ current_path }}">
+                                                {{ part }}
+                                            </a>
+                                        {% endwith %}
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        {% endwith %}
+                    {% endif %}
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-upload"></i> 上传文件
+            </button>
+            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#remoteDownloadModal">
+                <i class="bi bi-cloud-download"></i> 远程下载
+            </button>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createFileModal">
+                <i class="bi bi-file-earmark-plus"></i> 新建文件
+            </button>
+            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#createFolderModal">
+                <i class="bi bi-folder-plus"></i> 新建文件夹
+            </button>
+        </div>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- 文件列表 -->
+    <div class="card">
+        <div class="card-body">
+            <!-- 批量操作工具栏 -->
+            <div class="mb-3 batch-actions d-none">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="batchCopy()">
+                        <i class="bi bi-files"></i> 复制
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="batchCut()">
+                        <i class="bi bi-scissors"></i> 剪切
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="batchMove()">
+                        <i class="bi bi-arrow-right-square"></i> 移动到
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="batchDelete()">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </div>
+                <span class="ms-2 selected-count"></span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%">
+                                <input type="checkbox" class="form-check-input" id="selectAll">
+                            </th>
+                            <th style="width: 30%">名称</th>
+                            <th style="width: 10%">大小</th>
+                            <th style="width: 15%">修改时间</th>
+                            <th style="width: 10%">权限</th>
+                            <th style="width: 15%">所有者</th>
+                            <th style="width: 15%">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if parent_path %}
+                        <tr>
+                            <td></td>
+                            <td colspan="6">
+                                <a href="{% url 'dashboard:files' %}?path={{ parent_path }}" class="text-decoration-none">
+                                    <i class="bi bi-arrow-up"></i> 返回上级目录
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        
+                        {% for item in items %}
+                        <tr data-path="{{ item.path }}" data-name="{{ item.name }}" data-is-dir="{{ item.is_dir|yesno:'true,false' }}" 
+                            oncontextmenu="showContextMenu(event, this); return false;">
+                            <td>
+                                <input type="checkbox" class="form-check-input item-select">
+                            </td>
+                            <td>
+                                {% if item.is_dir %}
+                                <i class="bi bi-folder2 text-warning"></i>
+                                <a href="{% url 'dashboard:files' %}?path={{ item.path }}" class="text-decoration-none ms-1">
+                                    {{ item.name }}
+                                </a>
+                                {% else %}
+                                <i class="bi bi-file-earmark text-primary"></i>
+                                <span class="ms-1">{{ item.name }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.size }}</td>
+                            <td>{{ item.modified|date:"Y-m-d H:i:s" }}</td>
+                            <td><code>{{ item.mode }}</code></td>
+                            <td>{{ item.owner }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    {% if not item.is_dir %}
+                                    <a href="{% url 'dashboard:files' %}?action=download&path={{ item.path }}" 
+                                       class="btn btn-sm btn-outline-primary" title="下载">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-info" title="编辑"
+                                            onclick="editFile('{{ item.path }}')">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="重命名"
+                                            onclick="showRenameModal('{{ item.path }}', '{{ item.name }}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning" title="修改权限"
+                                            onclick="showChmodModal('{{ item.path }}', '{{ item.mode }}')">
+                                        <i class="bi bi-shield-lock"></i>
+                                    </button>
+                                    <form method="post" action="{% url 'dashboard:files' %}?action=delete"
+                                          class="d-inline"
+                                          onsubmit="return confirm('确定要删除{{ item.is_dir|yesno:"目录,文件" }} {{ item.name }} 吗？');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="path" value="{{ item.path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="删除">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">目录为空</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 右键菜单 -->
+<div class="context-menu" style="display: none; position: absolute;">
+    <div class="list-group">
+        <button class="list-group-item list-group-item-action" onclick="copyItem()">
+            <i class="bi bi-files"></i> 复制
+        </button>
+        <button class="list-group-item list-group-item-action" onclick="cutItem()">
+            <i class="bi bi-scissors"></i> 剪切
+        </button>
+        <button class="list-group-item list-group-item-action" onclick="moveItem()">
+            <i class="bi bi-arrow-right-square"></i> 移动到
+        </button>
+        <button class="list-group-item list-group-item-action" onclick="deleteItem()">
+            <i class="bi bi-trash"></i> 删除
+        </button>
+        <button class="list-group-item list-group-item-action" onclick="refreshList()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新
+        </button>
+    </div>
+</div>
+
+<!-- 移动/复制目标目录选择模态框 -->
+<div class="modal fade" id="moveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择目标目录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=move">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="source_paths" id="source_paths">
+                    <input type="hidden" name="operation" id="operation">
+                    <div class="mb-3">
+                        <label for="target_path" class="form-label">目标路径</label>
+                        <input type="text" class="form-control" id="target_path" name="target_path" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确定</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 上传文件模态框 -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传文件</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=upload" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="current_path" value="{{ current_path }}">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">选择文件</label>
+                        <input type="file" class="form-control" id="file" name="file" multiple required>
+                    </div>
+                    <div class="progress d-none">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 远程下载模态框 -->
+<div class="modal fade" id="remoteDownloadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">远程下载</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=remote_download">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="current_path" value="{{ current_path }}">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">下载地址</label>
+                        <input type="url" class="form-control" id="url" name="url" required
+                               placeholder="请输入文件URL">
+                    </div>
+                    <div class="mb-3">
+                        <label for="filename" class="form-label">保存文件名</label>
+                        <input type="text" class="form-control" id="filename" name="filename"
+                               placeholder="留空则使用原文件名">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">下载</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 新建文件模态框 -->
+<div class="modal fade" id="createFileModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新建文件</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=create_file">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="current_path" value="{{ current_path }}">
+                    <div class="mb-3">
+                        <label for="file_name" class="form-label">文件名</label>
+                        <input type="text" class="form-control" id="file_name" name="file_name" required
+                               placeholder="请输入文件名">
+                        <div class="form-text">不要包含特殊字符，建议使用字母、数字、下划线和点</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label">文件内容</label>
+                        <textarea class="form-control" id="content" name="content" rows="10"
+                                  placeholder="请输入文件内容"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 新建文件夹模态框 -->
+<div class="modal fade" id="createFolderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新建文件夹</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=create_folder">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="current_path" value="{{ current_path }}">
+                    <div class="mb-3">
+                        <label for="folder_name" class="form-label">文件夹名称</label>
+                        <input type="text" class="form-control" id="folder_name" name="folder_name" required
+                               placeholder="请输入文件夹名称">
+                        <div class="form-text">不要包含特殊字符，建议使用字母、数字和下划线</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 重命名模态框 -->
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">重命名</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=rename">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="old_path" id="rename_old_path">
+                    <div class="mb-3">
+                        <label for="new_name" class="form-label">新名称</label>
+                        <input type="text" class="form-control" id="new_name" name="new_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">重命名</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 修改权限模态框 -->
+<div class="modal fade" id="chmodModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">修改权限</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'dashboard:files' %}?action=chmod">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="path" id="chmod_path">
+                    <div class="mb-3">
+                        <label for="mode" class="form-label">权限模式（如：0755）</label>
+                        <input type="text" class="form-control" id="mode" name="mode" 
+                               pattern="0[0-7]{3}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 文件路径跳转
+function goToPath() {
+    const path = document.getElementById('current_path').value;
+    
+    // 规范化路径
+    let normalizedPath = path;
+    if (!path.startsWith('/')) {
+        normalizedPath = '/' + path;
+    }
+    
+    // 移除多余的斜杠
+    normalizedPath = normalizedPath.replace(/\/+/g, '/');
+    
+    window.location.href = `{% url 'dashboard:files' %}?path=${normalizedPath}`;
+}
+
+// 添加回车键支持
+document.getElementById('current_path').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        goToPath();
+    }
+});
+
+// 编辑文件
+function editFile(path) {
+    // 实现文件编辑功能
+    window.location.href = `{% url 'dashboard:files' %}?action=edit&path=${path}`;
+}
+
+// 其他函数保持不变
+function showRenameModal(path, name) {
+    document.getElementById('rename_old_path').value = path;
+    document.getElementById('new_name').value = name;
+    new bootstrap.Modal(document.getElementById('renameModal')).show();
+}
+
+function showChmodModal(path, mode) {
+    document.getElementById('chmod_path').value = path;
+    document.getElementById('mode').value = mode;
+    new bootstrap.Modal(document.getElementById('chmodModal')).show();
+}
+
+// 文件上传进度
+document.querySelector('#uploadModal form').addEventListener('submit', function(e) {
+    const progressBar = this.querySelector('.progress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    progressBar.classList.remove('d-none');
+    
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            progressBarInner.style.width = percentComplete + '%';
+            progressBarInner.textContent = Math.round(percentComplete) + '%';
+        }
+    });
+    
+    // 其他上传逻辑...
+});
+
+// 全选功能
+document.getElementById('selectAll').addEventListener('change', function(e) {
+    const checkboxes = document.querySelectorAll('.item-select');
+    checkboxes.forEach(checkbox => checkbox.checked = e.target.checked);
+    updateBatchActions();
+});
+
+// 单选框变化时更新工具栏
+document.querySelectorAll('.item-select').forEach(checkbox => {
+    checkbox.addEventListener('change', updateBatchActions);
+});
+
+// 更新批量操作工具栏
+function updateBatchActions() {
+    const selectedCount = document.querySelectorAll('.item-select:checked').length;
+    const batchActions = document.querySelector('.batch-actions');
+    const countDisplay = document.querySelector('.selected-count');
+    
+    if (selectedCount > 0) {
+        batchActions.classList.remove('d-none');
+        countDisplay.textContent = `已选择 ${selectedCount} 项`;
+    } else {
+        batchActions.classList.add('d-none');
+    }
+}
+
+// 获取选中的项目
+function getSelectedItems() {
+    const items = [];
+    document.querySelectorAll('.item-select:checked').forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        items.push({
+            path: row.dataset.path,
+            name: row.dataset.name,
+            isDir: row.dataset.isDir === 'true'
+        });
+    });
+    return items;
+}
+
+// 批量操作函数
+function batchCopy() {
+    const items = getSelectedItems();
+    showMoveModal('copy', items);
+}
+
+function batchCut() {
+    const items = getSelectedItems();
+    showMoveModal('cut', items);
+}
+
+function batchMove() {
+    const items = getSelectedItems();
+    showMoveModal('move', items);
+}
+
+function batchDelete() {
+    const items = getSelectedItems();
+    if (confirm(`确定要删除选中的 ${items.length} 个项目吗？`)) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = `{% url 'dashboard:files' %}?action=batch_delete`;
+        
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = '{{ csrf_token }}';
+        form.appendChild(csrf);
+        
+        const paths = document.createElement('input');
+        paths.type = 'hidden';
+        paths.name = 'paths';
+        paths.value = JSON.stringify(items.map(item => item.path));
+        form.appendChild(paths);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// 右键菜单
+let currentContextItem = null;
+
+function showContextMenu(event, row) {
+    event.preventDefault();
+    currentContextItem = row;
+    
+    const menu = document.querySelector('.context-menu');
+    menu.style.display = 'block';
+    menu.style.left = event.pageX + 'px';
+    menu.style.top = event.pageY + 'px';
+}
+
+// 点击其他地方时隐藏右键菜单
+document.addEventListener('click', function() {
+    document.querySelector('.context-menu').style.display = 'none';
+});
+
+// 右键菜单操作
+function copyItem() {
+    showMoveModal('copy', [{
+        path: currentContextItem.dataset.path,
+        name: currentContextItem.dataset.name,
+        isDir: currentContextItem.dataset.isDir === 'true'
+    }]);
+}
+
+function cutItem() {
+    showMoveModal('cut', [{
+        path: currentContextItem.dataset.path,
+        name: currentContextItem.dataset.name,
+        isDir: currentContextItem.dataset.isDir === 'true'
+    }]);
+}
+
+function moveItem() {
+    showMoveModal('move', [{
+        path: currentContextItem.dataset.path,
+        name: currentContextItem.dataset.name,
+        isDir: currentContextItem.dataset.isDir === 'true'
+    }]);
+}
+
+function deleteItem() {
+    if (confirm(`确定要删除 ${currentContextItem.dataset.name} 吗？`)) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = `{% url 'dashboard:files' %}?action=delete`;
+        
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrfmiddlewaretoken';
+        csrf.value = '{{ csrf_token }}';
+        form.appendChild(csrf);
+        
+        const path = document.createElement('input');
+        path.type = 'hidden';
+        path.name = 'path';
+        path.value = currentContextItem.dataset.path;
+        form.appendChild(path);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function refreshList() {
+    window.location.reload();
+}
+
+// 显示移动/复制模态框
+function showMoveModal(operation, items) {
+    document.getElementById('source_paths').value = JSON.stringify(items.map(item => item.path));
+    document.getElementById('operation').value = operation;
+    document.getElementById('target_path').value = '{{ current_path }}';
+    new bootstrap.Modal(document.getElementById('moveModal')).show();
+}
+</script>
+
+<style>
+.context-menu {
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.context-menu .list-group {
+    margin-bottom: 0;
+}
+
+.context-menu .list-group-item {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+}
+
+.context-menu .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.batch-actions {
+    background-color: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.selected-count {
+    color: #6c757d;
+}
+</style>
+{% endblock %} 

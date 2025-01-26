@@ -1,0 +1,96 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 安全设置{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>安全设置</h2>
+        <a href="{% url 'dashboard:security_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 添加规则
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- 调试信息 -->
+    {% if debug %}
+    <div class="alert alert-info">
+        <p>规则总数: {{ rules|length }}</p>
+        {% for rule in rules %}
+        <p>{{ rule.name }} - {{ rule.get_rule_type_display }} - {{ rule.value }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>规则名称</th>
+                            <th>类型</th>
+                            <th>规则值</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in rules %}
+                        <tr>
+                            <td>{{ rule.name }}</td>
+                            <td>{{ rule.get_rule_type_display }}</td>
+                            <td>{{ rule.value }}</td>
+                            <td>
+                                <span class="badge {% if rule.is_enabled %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ rule.is_enabled|yesno:"启用,禁用" }}
+                                </span>
+                            </td>
+                            <td>{{ rule.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'dashboard:security' %}?action=edit&id={{ rule.id }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'dashboard:security' %}?action=toggle"
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-{{ rule.is_enabled|yesno:"warning,success" }}">
+                                            <i class="bi bi-{{ rule.is_enabled|yesno:"pause,play" }}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'dashboard:security' %}?action=delete"
+                                          class="d-inline"
+                                          onsubmit="return confirm('确定要删除这条规则吗？');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">暂无安全规则</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

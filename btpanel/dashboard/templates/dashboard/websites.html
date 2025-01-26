@@ -1,0 +1,86 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 网站管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>网站管理</h2>
+        <a href="{% url 'dashboard:websites_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 添加网站
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>网站名称</th>
+                            <th>域名</th>
+                            <th>端口</th>
+                            <th>PHP版本</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for website in websites %}
+                        <tr>
+                            <td>{{ website.name }}</td>
+                            <td>{{ website.domain }}</td>
+                            <td>{{ website.port }}</td>
+                            <td>{{ website.php_version|default:'-' }}</td>
+                            <td>
+                                <span class="badge {% if website.status == 'running' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ website.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ website.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'dashboard:websites_edit' website.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="post" action="{% url 'dashboard:websites_toggle' website.id %}" 
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-{% if website.status == 'running' %}warning{% else %}success{% endif %}">
+                                            <i class="bi bi-{% if website.status == 'running' %}stop{% else %}play{% endif %}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'dashboard:websites_delete' website.id %}" 
+                                          class="d-inline"
+                                          onsubmit="return confirm('确定要删除这个网站吗？');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">暂无网站</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

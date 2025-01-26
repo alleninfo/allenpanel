@@ -1,0 +1,143 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 仪表盘{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">系统概览</h2>
+    
+    <div class="row">
+        <!-- CPU使用率 -->
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">CPU使用率</h6>
+                            <h3 class="mb-0">{{ cpu_usage }}%</h3>
+                            <small class="text-muted">{{ system_info.cpu_count }} 核心</small>
+                        </div>
+                        <div class="text-primary">
+                            <i class="bi bi-cpu fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 内存使用率 -->
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">内存使用率</h6>
+                            <h3 class="mb-0">{{ memory_usage }}%</h3>
+                            <small class="text-muted">总内存: {{ memory_total_gb }}GB</small>
+                        </div>
+                        <div class="text-success">
+                            <i class="bi bi-memory fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 磁盘使用率 -->
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">磁盘使用率</h6>
+                            <h3 class="mb-0">{{ disk_usage }}%</h3>
+                            <small class="text-muted">总容量: {{ disk_total_gb }}GB</small>
+                        </div>
+                        <div class="text-warning">
+                            <i class="bi bi-hdd fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 运行时间 -->
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">系统运行时间</h6>
+                            <h3 class="mb-0">{{ uptime }}</h3>
+                            <small class="text-muted">{{ system_info.os }}</small>
+                        </div>
+                        <div class="text-info">
+                            <i class="bi bi-clock-history fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 最近的网站访问统计 -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">网站访问统计</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>网站</th>
+                                    <th>今日访问</th>
+                                    <th>昨日访问</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for site in website_stats %}
+                                <tr>
+                                    <td>{{ site.name }}</td>
+                                    <td>{{ site.today_visits }}</td>
+                                    <td>{{ site.yesterday_visits }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 最近的系统日志 -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">系统日志</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>类型</th>
+                                    <th>内容</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in system_logs %}
+                                <tr>
+                                    <td>{{ log.time }}</td>
+                                    <td>{{ log.type }}</td>
+                                    <td>{{ log.content }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

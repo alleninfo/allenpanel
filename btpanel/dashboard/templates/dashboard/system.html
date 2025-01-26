@@ -1,0 +1,274 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}控制面板 - 系统监控{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">系统监控</h2>
+    
+    <!-- 系统信息 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">系统信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <p><strong>操作系统：</strong>{{ system_info.os }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>系统版本：</strong>{{ system_info.os_version }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>主机名：</strong>{{ system_info.hostname }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>CPU核心数：</strong>{{ system_info.cpu_count }} (物理核心: {{ system_info.cpu_physical_count }})</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>总内存：</strong>{{ system_info.memory_total }}</p>
+                </div>
+                <div class="col-md-3">
+                    <p><strong>总磁盘空间：</strong>{{ system_info.disk_total }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实时监控 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">CPU使用率</h5>
+                    <span class="badge bg-primary" id="cpu-usage">0%</span>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">内存使用情况</h5>
+                    <div>
+                        <span class="badge bg-success" id="memory-usage">0%</span>
+                        <small class="text-muted ms-2" id="memory-detail"></small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">磁盘使用情况</h5>
+                    <div>
+                        <span class="badge bg-warning" id="disk-usage">0%</span>
+                        <small class="text-muted ms-2" id="disk-detail"></small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="diskChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">网络流量</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="networkChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// 初始化图表
+const cpuChart = new Chart(document.getElementById('cpuChart'), {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'CPU使用率 (%)',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+            fill: true,
+            backgroundColor: 'rgba(75, 192, 192, 0.2)'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        },
+        animation: {
+            duration: 0
+        }
+    }
+});
+
+const memoryChart = new Chart(document.getElementById('memoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['已用', '可用'],
+        datasets: [{
+            data: [0, 100],
+            backgroundColor: ['rgb(255, 99, 132)', 'rgb(54, 162, 235)']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 0
+        }
+    }
+});
+
+const diskChart = new Chart(document.getElementById('diskChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['已用', '可用'],
+        datasets: [{
+            data: [0, 100],
+            backgroundColor: ['rgb(255, 205, 86)', 'rgb(75, 192, 192)']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 0
+        }
+    }
+});
+
+const networkChart = new Chart(document.getElementById('networkChart'), {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: '发送 (MB/s)',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+        }, {
+            label: '接收 (MB/s)',
+            data: [],
+            borderColor: 'rgb(255, 99, 132)',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        animation: {
+            duration: 0
+        }
+    }
+});
+
+// 更新图表数据
+let lastNetworkStats = null;
+
+function updateCharts() {
+    fetch('{% url "dashboard:system_stats" %}')
+        .then(response => response.json())
+        .then(data => {
+            // 更新系统信息显示
+            document.getElementById('cpu-usage').textContent = `${data.cpu.usage}%`;
+            document.getElementById('memory-usage').textContent = `${data.memory.percent}%`;
+            document.getElementById('memory-detail').textContent = 
+                `${data.memory.used_formatted} / ${data.memory.total_formatted}`;
+            document.getElementById('disk-usage').textContent = `${data.disk.percent}%`;
+            document.getElementById('disk-detail').textContent = 
+                `${data.disk.used_formatted} / ${data.disk.total_formatted}`;
+
+            // 更新CPU图表
+            const time = new Date().toLocaleTimeString();
+            cpuChart.data.labels.push(time);
+            cpuChart.data.datasets[0].data.push(data.cpu.usage);
+            if (cpuChart.data.labels.length > 60) {
+                cpuChart.data.labels.shift();
+                cpuChart.data.datasets[0].data.shift();
+            }
+            cpuChart.update();
+
+            // 更新内存图表
+            memoryChart.data.datasets[0].data = [
+                data.memory.used,
+                data.memory.available
+            ];
+            memoryChart.update();
+
+            // 更新磁盘图表
+            diskChart.data.datasets[0].data = [
+                data.disk.used,
+                data.disk.free
+            ];
+            diskChart.update();
+
+            // 更新网络图表
+            if (lastNetworkStats) {
+                const timeDiff = (data.timestamp - lastNetworkStats.timestamp);
+                const bytesSentPerSec = (data.network.bytes_sent - lastNetworkStats.bytes_sent) / timeDiff;
+                const bytesRecvPerSec = (data.network.bytes_recv - lastNetworkStats.bytes_recv) / timeDiff;
+                
+                networkChart.data.labels.push(time);
+                networkChart.data.datasets[0].data.push((bytesSentPerSec / 1024 / 1024).toFixed(2));
+                networkChart.data.datasets[1].data.push((bytesRecvPerSec / 1024 / 1024).toFixed(2));
+                
+                if (networkChart.data.labels.length > 60) {
+                    networkChart.data.labels.shift();
+                    networkChart.data.datasets[0].data.shift();
+                    networkChart.data.datasets[1].data.shift();
+                }
+                networkChart.update();
+            }
+            
+            lastNetworkStats = {
+                timestamp: data.timestamp,
+                bytes_sent: data.network.bytes_sent,
+                bytes_recv: data.network.bytes_recv
+            };
+        });
+}
+
+// 每秒更新一次数据
+setInterval(updateCharts, 1000);
+updateCharts();
+</script>
+{% endblock %} 
