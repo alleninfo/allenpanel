@@ -127,6 +127,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'appstore' %}active{% endif %}"
+                       href="{% url 'dashboard:appstore' %}">
+                        <i class="bi bi-box"></i> 应用商店
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.resolver_match.url_name == 'security' %}active{% endif %}"
                        href="{% url 'dashboard:security' %}">
                         <i class="bi bi-shield"></i> 安全设置

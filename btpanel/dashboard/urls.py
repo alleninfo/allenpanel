@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 from . import views
 
 app_name = 'dashboard'
@@ -27,4 +27,8 @@ urlpatterns = [
     path('cron/', views.CronView.as_view(), name='cron'),
     path('cron/add/', views.CronView.as_view(), {'action': 'add'}, name='cron_add'),
     path('settings/', views.SettingsView.as_view(), name='settings'),
+    path('appstore/', views.AppStoreView.as_view(), name='appstore'),
+    path('appstore/app/<int:app_id>/', views.AppStoreView.as_view(), {'action': 'detail'}, name='app_detail'),
+    path('appstore/install/<int:app_id>/', views.AppStoreView.as_view(), {'action': 'install'}, name='app_install'),
+    path('appstore/uninstall/<int:app_id>/', views.AppStoreView.as_view(), {'action': 'uninstall'}, name='app_uninstall'),
 ]

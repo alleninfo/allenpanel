@@ -300,3 +300,179 @@ def get_os_type(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+class AppStore(models.Model):
+    APP_TYPES = (
+        ('env', '运行环境'),
+        ('database', '数据库'),
+        ('web', 'Web服务器'),
+        ('tool', '管理工具'),
+    )
+    
+    STATUS_CHOICES = (
+        ('not_installed', '未安装'),
+        ('installing', '安装中'),
+        ('installed', '已安装'),
+        ('failed', '安装失败'),
+    )
+    
+    name = models.CharField('应用名称', max_length=100)
+    versions = models.JSONField('可用版本', default=list)
+    current_version = models.CharField('当前版本', max_length=50, blank=True)
+    app_type = models.CharField('应用类型', max_length=20, choices=APP_TYPES)
+    description = models.TextField('描述')
+    icon = models.CharField('图标', max_length=50, default='bi-box')
+    
+    # 安装命令
+    install_commands = models.JSONField('安装命令', default=dict)
+    uninstall_command = models.TextField('卸载命令')
+    
+    # 状态信息
+    status = models.CharField('状态', max_length=20, choices=STATUS_CHOICES, default='not_installed')
+    install_time = models.DateTimeField('安装时间', null=True, blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+    
+    # 默认版本
+    default_version = models.CharField('默认版本', max_length=50, blank=True)
+    
+    # 额外信息
+    requires_php = models.CharField('需要的PHP版本', max_length=50, blank=True)
+    requires_mysql = models.CharField('需要的MySQL版本', max_length=50, blank=True)
+    requires_nginx = models.CharField('需要的Nginx版本', max_length=50, blank=True)
+    
+    class Meta:
+        verbose_name = '应用'
+        verbose_name_plural = '应用商店'
+        ordering = ['app_type', 'name']
+
+    def __str__(self):
+        return f'{self.name} {self.current_version or "未安装"}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    def get_os_type(self):
+        """获取操作系统类型"""
+        try:
+            with open('/etc/os-release') as f:
+                content = f.read().lower()
+                if 'ubuntu' in content:
+                    return 'ubuntu'
+                elif 'centos' in content:
+                    return 'centos'
+        except:
+            pass
+        return 'unknown'
+
+    def get_install_command(self):
+        """根据操作系统返回安装命令"""
+        os_type = self.get_os_type()
+        version = self.current_version or self.default_version
+        if os_type in self.install_commands and version in self.install_commands[os_type]:
+            return self.install_commands[os_type][version]
+        return None
+
+    def check_dependencies(self):
+        """检查依赖"""
+        missing = []
+        if self.requires_php:
+            php = AppStore.objects.filter(name='PHP', status='installed').first()
+            if not php or not self._version_satisfies(php.current_version, self.requires_php):
+                missing.append(f'PHP {self.requires_php}')
+        
+        if self.requires_mysql:
+            mysql = AppStore.objects.filter(name='MySQL', status='installed').first()
+            if not mysql or not self._version_satisfies(mysql.current_version, self.requires_mysql):
+                missing.append(f'MySQL {self.requires_mysql}')
+        
+        if self.requires_nginx:
+            nginx = AppStore.objects.filter(name='Nginx', status='installed').first()
+            if not nginx or not self._version_satisfies(nginx.current_version, self.requires_nginx):
+                missing.append(f'Nginx {self.requires_nginx}')
+        
+        return missing
+
+    def _version_satisfies(self, current, required):
+        """检查版本是否满足要求"""
+        from packaging import version
+        try:
+            if not current:
+                return False
+            return version.parse(current) >= version.parse(required)
+        except:
+            return False
+
+    def install(self, version=None):
+        """安装应用"""
+        try:
+            if not version:
+                version = self.default_version
+            
+            if version not in self.versions:
+                raise ValueError(f'不支持的版本: {version}')
+            
+            # 检查依赖
+            missing = self.check_dependencies()
+            if missing:
+                raise ValueError(f'缺少依赖: {", ".join(missing)}')
+            
+            # 如果已安装，先卸载
+            if self.status == 'installed':
+                self.uninstall()
+            
+            self.status = 'installing'
+            self.current_version = version
+            self.save()
+            
+            # 获取安装命令
+            install_command = self.get_install_command()
+            if not install_command:
+                raise ValueError('不支持当前操作系统')
+            
+            # 执行安装命令
+            subprocess.run(install_command, shell=True, check=True)
+            
+            # 根据应用类型执行额外操作
+            if self.name == 'PHP':
+                self._enable_php_modules()
+            elif self.name == 'MySQL':
+                self._secure_mysql()
+            elif self.name == 'Nginx':
+                self._configure_nginx()
+            elif self.name == 'phpMyAdmin':
+                self._configure_phpmyadmin()
+            
+            self.status = 'installed'
+            self.install_time = timezone.now()
+            self.save()
+            return True
+        except Exception as e:
+            self.status = 'failed'
+            self.save()
+            raise e
+
+    def uninstall(self):
+        """卸载应用"""
+        try:
+            # 检查是否有依赖此应用的其他应用
+            dependents = AppStore.objects.filter(
+                models.Q(requires_php__contains=self.current_version if self.name == 'PHP' else '') |
+                models.Q(requires_mysql__contains=self.current_version if self.name == 'MySQL' else '') |
+                models.Q(requires_nginx__contains=self.current_version if self.name == 'Nginx' else ''),
+                status='installed'
+            )
+            
+            if dependents.exists():
+                raise ValueError(f'以下应用依赖此版本，无法卸载: {", ".join(d.name for d in dependents)}')
+            
+            subprocess.run(self.uninstall_command, shell=True, check=True)
+            self.status = 'not_installed'
+            self.install_time = None
+            self.current_version = ''
+            self.save()
+            return True
+        except Exception as e:
+            self.status = 'failed'
+            self.save()
+            raise e

@@ -8,7 +8,7 @@ from django.http import JsonResponse
 import time
 import platform
 import json
-from .models import AdminUser, Website, Database, SecurityRule, CronJob
+from .models import AdminUser, Website, Database, SecurityRule, CronJob, AppStore
 import os
 import subprocess
 from django.contrib import messages
@@ -1139,3 +1139,136 @@ class FilesView(LoginRequiredMixin, View):
         context = super().get_context_data(**kwargs)
         context['BASE_PATH'] = FileManager.BASE_PATH
         return context
+
+class AppStoreView(LoginRequiredMixin, View):
+    login_url = '/login/'
+    
+    def get(self, request, app_id=None, action=None):
+        # 打印完整的请求信息
+        print('请求信息:', {
+            'path': request.path,
+            'app_id': app_id,
+            'action': action,
+            'GET': dict(request.GET),
+            'kwargs': getattr(self, 'kwargs', {}),
+            'resolver_match': getattr(request, 'resolver_match', None)
+        })
+        
+        # 从 URL kwargs 中获取 action
+        action = self.kwargs.get('action', action)
+        print('解析后的 action:', action)  # 调试日志
+        
+        # 如果有 app_id，返回应用详情
+        if action == 'detail' and app_id is not None:
+            print('尝试获取应用详情, ID:', app_id)  # 调试日志
+            return self.get_app_detail(request, app_id)
+        
+        # 按类型分组获取应用
+        apps = AppStore.objects.all()
+        print('所有应用:', [(app.id, app.name) for app in apps])  # 调试日志
+        apps_by_type = {}
+        
+        for app in apps:
+            app_type = app.get_app_type_display()
+            if app_type not in apps_by_type:
+                apps_by_type[app_type] = []
+            apps_by_type[app_type].append(app)
+        
+        # 获取已安装的应用
+        installed_apps = apps.filter(status='installed')
+        
+        return render(request, 'dashboard/appstore.html', {
+            'apps_by_type': apps_by_type,
+            'installed_apps': installed_apps
+        })
+    
+    def get_app_detail(self, request, app_id):
+        """获取应用详情"""
+        try:
+            print('请求参数:', {
+                'app_id': app_id,
+                'path': request.path,
+                'method': request.method,
+                'GET': dict(request.GET),
+                'kwargs': getattr(self, 'kwargs', {})
+            })
+            
+            # 检查 app_id 是否有效
+            if not app_id:
+                return JsonResponse({'error': '无效的应用ID'}, status=400)
+            
+            app = get_object_or_404(AppStore, id=app_id)
+            print(f'获取应用详情: ID={app.id}, 名称={app.name}, 版本={app.versions}')  # 调试日志
+            
+            # 确保 versions 是列表
+            versions = app.versions
+            if isinstance(versions, str):
+                try:
+                    versions = json.loads(versions)
+                except:
+                    versions = []
+            
+            return JsonResponse({
+                'name': app.name,
+                'versions': versions,
+                'current_version': app.current_version,
+                'default_version': app.default_version,
+                'description': app.description,
+                'icon': app.icon,
+                'os_type': app.get_os_type(),
+                'install_command': app.get_install_command(),
+                'missing_dependencies': app.check_dependencies(),
+                'requires_php': app.requires_php,
+                'requires_mysql': app.requires_mysql,
+                'requires_nginx': app.requires_nginx,
+                'status': app.status
+            })
+        except Exception as e:
+            import traceback
+            print('获取应用详情错误:', str(e))
+            print(traceback.format_exc())
+            return JsonResponse({'error': str(e)}, status=400)
+    
+    def post(self, request, app_id=None, action=None):
+        """处理安装/卸载请求"""
+        print('收到请求:', request.path, request.method)  # 调试日志
+        print('app_id:', app_id, 'action:', action)  # 调试日志
+        
+        if not app_id or not action:
+            return JsonResponse({'error': '无效的请求'}, status=400)
+        
+        try:
+            app = get_object_or_404(AppStore, id=app_id)
+            
+            if action == 'install':
+                # 获取版本信息
+                data = json.loads(request.body)
+                version = data.get('version')
+                if not version:
+                    return JsonResponse({'error': '未指定版本'}, status=400)
+                
+                # 执行安装
+                try:
+                    app.install(version)
+                    return JsonResponse({'status': 'success'})
+                except Exception as e:
+                    import traceback
+                    print('安装错误:', str(e))
+                    print(traceback.format_exc())
+                    return JsonResponse({'error': str(e)}, status=500)
+            elif action == 'uninstall':
+                try:
+                    app.uninstall()
+                    return JsonResponse({'status': 'success'})
+                except Exception as e:
+                    import traceback
+                    print('卸载错误:', str(e))
+                    print(traceback.format_exc())
+                    return JsonResponse({'error': str(e)}, status=500)
+            else:
+                return JsonResponse({'error': '无效的操作'}, status=400)
+        except Exception as e:
+            import traceback
+            print('操作错误:', str(e))
+            print(traceback.format_exc())
+            return JsonResponse({'error': str(e)}, status=500)
